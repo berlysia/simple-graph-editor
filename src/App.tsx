@@ -1,5 +1,7 @@
-import React, { useReducer, useRef, useState } from "react";
+import React, { Fragment, useReducer, useRef, useState } from "react";
 import { GraphNodeProps, GraphNode, GraphNodeRef } from "./GraphNode";
+import ContextMenuForNode from "./ContextMenuForNode";
+import ContextMenuForLink from "./ContextMenuForLink";
 
 // 2点間の角度を求める
 const getAngle = (
@@ -30,18 +32,86 @@ function App() {
   const [lines, setLines] = useState<{ from: number; to: number }[]>([]);
   const [lineFrom, setLineFrom] = useState<number | null>(null);
 
-  // 右クリックしたときのコールバック
-  const onRightClick = (nodeId: number) => {
+  const onStartConnectLine = (nodeId: number) => {
+    console.log("startConnectLine", { nodeId, lineFrom });
+    if (typeof nodeId === "number" && nodeId === lineFrom) {
+      setLineFrom(null);
+      return;
+    }
     setLineFrom(nodeId);
   };
 
-  // 右クリックしている間に左クリックしたときのコールバック
-  const onLeftClick = (nodeId: number) => {
+  const onConnectLine = (nodeId: number) => {
     if (lineFrom === null) {
       return;
     }
     setLines([...lines, { from: lineFrom, to: nodeId }]);
     setLineFrom(null);
+  };
+
+  // ノードを消すコールバック
+  const onRemoveNode = (nodeId: number) => {
+    setNodes(nodes.filter((node) => node.nodeId !== nodeId));
+    setLines(
+      lines.filter((line) => line.from !== nodeId && line.to !== nodeId)
+    );
+  };
+
+  // ノードをリネームするコールバック
+  const onRenameNode = (nodeId: number, label: string) => {
+    setNodes(
+      nodes.map((node) => {
+        if (node.nodeId === nodeId) {
+          return { ...node, label };
+        }
+        return node;
+      })
+    );
+  };
+
+  // リンクを消すコールバック
+  const onRemoveLink = ({ from, to }: { from: number; to: number }) => {
+    setLines(lines.filter((line) => line.from !== from || line.to !== to));
+  };
+
+  // リンクを反転するコールバック
+  const onReverseLink = ({ from, to }: { from: number; to: number }) => {
+    setLines(
+      lines.map((line) =>
+        line.from === from && line.to === to ? { from: to, to: from } : line
+      )
+    );
+  };
+
+  // コンテキストメニューを開いているノードID
+  const [contextMenuNodeId, setContextMenuNodeId] = useState<number | null>(
+    null
+  );
+
+  // コンテキストメニューをノードに対して開くコールバック
+  const onOpenContextMenuNode = (nodeId: number) => {
+    setContextMenuNodeId(nodeId);
+  };
+
+  // コンテキストメニューを閉じるコールバック
+  const onCloseContextMenuNode = () => {
+    setContextMenuNodeId(null);
+  };
+
+  // コンテキストメニューを開いているリンクID
+  const [contextMenuLinkId, setContextMenuLinkId] = useState<{
+    from: number;
+    to: number;
+  } | null>(null);
+
+  // コンテキストメニューをリンクに対して開くコールバック
+  const onOpenContextMenuLink = (line: { from: number; to: number }) => {
+    setContextMenuLinkId(line);
+  };
+
+  // コンテキストメニューを閉じるコールバック
+  const onCloseContextMenuLink = () => {
+    setContextMenuLinkId(null);
   };
 
   return (
@@ -124,8 +194,9 @@ function App() {
             ref={(x) =>
               x ? nodeRefs.set(node.nodeId, x) : nodeRefs.delete(node.nodeId)
             }
-            onRightClick={onRightClick}
-            onLeftClick={onLeftClick}
+            selected={lineFrom === node.nodeId}
+            onRightClick={onOpenContextMenuNode}
+            onLeftClick={onConnectLine}
             onMove={
               // ノードを移動したときに線を引き直す
               (nodeId) => {
@@ -178,24 +249,26 @@ function App() {
           };
 
           return (
-            <>
+            <Fragment key={`${line.from}-${line.to}`}>
               <div
-                key={`${line.from}-${line.to}-body`}
+                onClick={() => onRemoveLink(line)}
+                onContextMenu={() => onOpenContextMenuLink(line)}
                 style={{
                   position: "absolute",
                   border: "1px solid black",
+                  backgroundColor: "black",
                   transformOrigin: "0 0",
                   transform: `rotate(${Math.atan2(
                     to.y - from.y,
                     to.x - from.x
                   )}rad)`,
                   width: Math.sqrt((from.x - to.x) ** 2 + (from.y - to.y) ** 2),
+                  height: "3px",
                   left: from.x,
                   top: from.y,
                 }}
               />
               <div
-                key={`${line.from}-${line.to}-head`}
                 style={{
                   position: "absolute",
                   backgroundColor: "transparent",
@@ -209,10 +282,23 @@ function App() {
                   top: to.y - 5,
                 }}
               />
-            </>
+            </Fragment>
           );
         })}
       </div>
+      <ContextMenuForNode
+        nodeId={contextMenuNodeId}
+        onRemoveNode={onRemoveNode}
+        onRenameNode={onRenameNode}
+        onConnectLine={onStartConnectLine}
+        onClose={onCloseContextMenuNode}
+      />
+      <ContextMenuForLink
+        linkId={contextMenuLinkId}
+        onRemoveLink={onRemoveLink}
+        onReverseLink={onReverseLink}
+        onClose={onCloseContextMenuLink}
+      />
     </div>
   );
 }

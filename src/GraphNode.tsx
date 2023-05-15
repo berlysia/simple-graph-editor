@@ -15,6 +15,7 @@ export const GraphNode = forwardRef(function GraphNode(
   {
     label,
     nodeId,
+    selected,
     onRightClick,
     onLeftClick,
     onMove,
@@ -22,6 +23,7 @@ export const GraphNode = forwardRef(function GraphNode(
   }: {
     label: string;
     nodeId: number;
+    selected: boolean;
     onRightClick: (nodeId: number) => void;
     onLeftClick: (nodeId: number) => void;
     onMove: (nodeId: number, position: { x: number; y: number }) => void;
@@ -78,15 +80,13 @@ export const GraphNode = forwardRef(function GraphNode(
   }, [forwardedRef]);
 
   useEffect(() => {
-    if (fieldRef.current) {
-      // @ts-expect-error
-      fieldRef.current.addEventListener("mousemove", handleMouseMove);
-    }
+    // @ts-expect-error
+    document.addEventListener("mousemove", handleMouseMove, { passive: true });
     return () => {
-      if (fieldRef.current) {
-        // @ts-expect-error
-        fieldRef.current.removeEventListener("mousemove", handleMouseMove);
-      }
+      // @ts-expect-error
+      document.removeEventListener("mousemove", handleMouseMove, {
+        passive: true,
+      });
     };
   }, [isDragging]);
 
@@ -110,7 +110,7 @@ export const GraphNode = forwardRef(function GraphNode(
         width: 100,
         height: 100,
         borderRadius: 50,
-        backgroundColor: "red",
+        backgroundColor: selected ? "blue" : "red",
         display: "flex",
         justifyContent: "center",
         alignItems: "center",
